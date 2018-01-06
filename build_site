@@ -1,0 +1,96 @@
+#! /bin/bash
+
+if [ -z "$1" ]; then
+	cat <<EOF
+命令: build_site [站点名称] [二级域名]
+例如：build_iste name name2 
+域名：name.name2.domain
+目录：~/sites/name.name2
+EOF
+	exit
+fi
+sitename=$1
+user=`pwd|awk -F'/' '{print $3}'`
+if [ -z "$2" ]; then
+	home=$user
+else 
+	home=$2
+fi
+dir=~/sites/$sitename.$home
+libdir=~/HapN
+
+if [ -d "$dir" ]; then
+	read -p "站点目录已经存在，是否删除？(y/n):" -n 1 rmdir
+	if [ "y" = $rmdir ]; then
+		rm $dir -rf
+	else
+		exit
+	fi
+fi
+
+echo "克隆项目"
+gitdir=~/pro.git
+if [ ! -d "$gitdir" ]; then
+    git clone http://$user@git.hapn.cc/offline/statistic.git ~/statistic.git
+    cd $gitdir
+    git checkout jinzhiqiang
+fi
+
+echo "创建目录"
+mkdir $dir
+cd $dir
+mkdir runroot tmp log conf
+chmod 0777 log tmp -R
+
+ln -s $libdir/HapN 
+ln -s $libdir/lib 
+
+ln -s $gitdir/app
+ln -s $gitdir/page
+ln -s ~/jiehun/share/static $gitdir/page/static/static
+ln -s $gitdir/plugin
+ln -s $gitdir/exlib
+cp $gitdir/runroot/index.php runroot/
+cp $gitdir/conf/hapn.conf.php conf/
+
+echo "检查域名"
+
+search=`grep " $sitename.$home.hapn.cc;" ~/nginx/vhost.conf`
+
+# 检查域名是否存在
+if [ -z "$search" ]; then
+echo "自动追加域名到~/nginx/vhost.conf"
+cat>>~/nginx/vhost.conf<<EOF
+###############$sitename################
+
+server {
+	listen		18600;
+	server_name $sitename.$home.hapn.cc;
+	root		$dir/runroot/;
+	access_log	/home/$user/nginx/$sitename.$home.access.log;
+	error_log	/home/$user/nginx/$sitename.$home.error.log notice;
+
+	location / {
+		rewrite ^(/.*?)$ /index.php?route=\$1 last;
+	}
+
+    location ~ \.(css|js|gif|jpg|jpeg|png|bmp|swf|ico|txt|woff2|woff|ttf)$ {
+        root $dir/page/;
+    }   
+
+	location /index.php {
+		fastcgi_pass   127.0.0.1:9200;
+		fastcgi_index  index.php;
+		fastcgi_param  SCRIPT_FILENAME      \$document_root\$fastcgi_script_name;
+		fastcgi_param  SERVER_NAME          \$host;
+		include        fastcgi_params;
+	}
+}
+EOF
+	echo "重启nginx"
+	/etc/init.d/nginx restart
+else
+	echo "域名已存在"
+fi
+
+echo "站点创建成功：$sitename.$home.hapn.cc"
