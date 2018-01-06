@@ -1,0 +1,49 @@
+# 默认允许的域，比如这里配置为 http://mydomain.com ,那么从 baidu.com localhost 或
+# 者 192.168.2.210 过来的都是不允许的
+#set $cors_header_origin 'http://hapn.cc';
+set $cors_header_origin '*';
+
+# 因为 'Access-Control-Allow-Origin' 只能指定一个域或者 *，所以将允许的请求域设置到响应头中
+# 使用正则匹配请求头中携带的 Origin 信息，判断是否允许访问。这里会允许 http://static.mydomain.com 
+# http://downloads.mydomian.com http://www.mydomain.com 等域访问，相当于通配符 *.mydomain.com
+if ($http_origin ~* "hapn.cc") {
+# 如果是来自允许跨域的域，则更新变量，待后面添加响应头使用
+    set $cors_header_origin $http_origin;
+}
+# 允许的请求方法
+set $cors_header_methods 'GET, POST, PUT, DELETE, OPTIONS';
+# 允许的头信息
+set $cors_header_headers 'Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,token';
+# 是否相应credientials请求
+set $cors_header_credentials 'true';
+# 预请求结果有效时间
+set $cors_header_max_age 1728000;
+
+# 如果是发出的预请求
+if ($request_method = 'OPTIONS') {
+    add_header 'Access-Control-Allow-Origin' $cors_header_origin;
+
+    add_header 'Access-Control-Allow-Methods' $cors_header_methods;
+    add_header 'Access-Control-Allow-Headers' $cors_header_headers;
+    add_header 'Access-Control-Allow-Credentials' $cors_header_credentials;
+    add_header 'Access-Control-Max-Age' $cors_header_max_age;
+
+    add_header 'Content-Type' 'text/plain charset=UTF-8';
+    add_header 'Content-Length' 0;
+    return 204;
+}
+# 简单请求配置 POST GET HEAD
+if ($request_method = 'POST') {
+    add_header 'Access-Control-Allow-Origin' $cors_header_origin;
+
+    add_header 'Access-Control-Allow-Methods' $cors_header_methods;
+    add_header 'Access-Control-Allow-Headers' $cors_header_headers;
+    add_header 'Access-Control-Allow-Credentials' $cors_header_credentials;
+}
+if ($request_method = 'GET') {
+    add_header 'Access-Control-Allow-Origin' $cors_header_origin;
+
+    add_header 'Access-Control-Allow-Methods' $cors_header_methods;
+    add_header 'Access-Control-Allow-Headers' $cors_header_headers;
+    add_header 'Access-Control-Allow-Credentials' $cors_header_credentials;
+}
